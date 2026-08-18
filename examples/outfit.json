@@ -1,6 +1,7 @@
 {
   "requires": [
     "build.cmake",
-    "media.ffmpeg"
+    "media.ffmpeg",
+    "audio.alsa.development"
   ]
 }
