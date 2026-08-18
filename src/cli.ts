@@ -3,7 +3,7 @@ import { readFile } from "node:fs/promises";
 import { parseCli, print } from "./cliSupport.js";
 import { envelope } from "./protocol.js";
 import { detectHost } from "./host/index.js";
-import { loadRegistry, resolve } from "./registry.js";
+import { loadRegistry, resolve } from "./registry/index.js";
 const { values, positionals } = parseCli();
 const op=positionals[0] ?? "help";
 if(values.version){ console.log("0.1.0-dev.0"); process.exit(0); }
