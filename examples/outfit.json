@@ -1,0 +1,6 @@
+{
+  "requires": [
+    "build.cmake",
+    "media.ffmpeg"
+  ]
+}

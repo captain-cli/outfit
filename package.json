@@ -1,0 +1,25 @@
+{
+  "name": "@captain-cli/outfit",
+  "version": "0.1.0-dev.0",
+  "description": "OS/environment dependency manager",
+  "type": "module",
+  "bin": {
+    "outfit": "./dist/cli.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsx src/cli.ts",
+    "check": "tsc --noEmit",
+    "clean": "rm -rf dist",
+    "test": "tsc -p tsconfig.test.json && node --test dist-tests/tests/**/*.test.js"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "license": "MIT",
+  "devDependencies": {
+    "@types/node": "^22.20.1",
+    "tsx": "^4.20.0",
+    "typescript": "^5.8.0"
+  }
+}
