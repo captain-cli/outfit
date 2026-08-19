@@ -5,3 +5,7 @@ coverage/
 .env
 *.log
 .DS_Store
+
+# Outfit generated planning artifacts
+outfit.plan*.json
+outfit.approval*.json
