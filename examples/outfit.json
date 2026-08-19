@@ -2,7 +2,6 @@
   "requires": [
     "build.cmake",
     "media.ffmpeg",
-    "audio.alsa.development",
-    "crypto.openssl.development"
+    "audio.alsa.development"
   ]
 }

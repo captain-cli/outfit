@@ -15,6 +15,13 @@ import {writeApproval} from "./execution/writeApproval.js";
 import { readApproval } from "./execution/readApproval.js";
 import { revalidatePlan } from "./execution/revalidatePlan.js";
 import { executePlan } from "./execution/executePlan.js";
+import {
+    buildExecutionRequest
+} from "./helper/buildExecutionRequest.js";
+
+import {
+    buildAptExecution
+} from "./helper/aptExecutor.js";
 
 const {values, positionals} = parseCli();
 const op = positionals[0] ?? "help";
@@ -320,6 +327,15 @@ if (op === "apply") {
             approval
         );
 
+    const executionRequest =
+        buildExecutionRequest(
+            validation
+        );
+
+    const nativeExecution =
+        buildAptExecution(
+            executionRequest
+        );
     /*
      * executePlan currently represents the execution boundary.
      * It MUST NOT perform privileged package installation yet.
@@ -346,7 +362,16 @@ if (op === "apply") {
                     validation.currentFingerprint
                 },
 
-                execution
+                executionRequest,
+
+                nativeExecution,
+
+                execution: {
+                    status: "validated",
+                    executed: false,
+                    message:
+                        "Approved plan matches current state. Privileged execution remains disabled."
+                }
             }
         ),
         values.json
