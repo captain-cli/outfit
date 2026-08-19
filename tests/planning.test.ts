@@ -13,6 +13,62 @@ import type {
   PackageManagerAdapter
 } from "../src/adapters/packageManager.js";
 
+import {
+  validatePlan
+} from "../src/planning/validatePlan.js";
+
+import type {
+  InstallationPlan
+} from "../src/planning/types.js";
+
+function createPlan(): InstallationPlan {
+  return {
+    id: "validate-plan-test",
+    createdAt: "2026-08-18T00:00:00Z",
+
+    platform: "ubuntu",
+    packageManager: "apt",
+    registryVersion: "0.1.0-dev.0",
+
+    requirements: [
+      {
+        resolution: {
+          requirement: "audio.alsa.development",
+          canonicalId: "audio.alsa.development",
+          platform: "ubuntu",
+          packageManager: "apt",
+          package: "libasound2-dev",
+          source: "ubuntu.official",
+          registryVersion: "0.1.0-dev.0"
+        }
+      }
+    ],
+
+    transaction: {
+      packageManager: "apt",
+      requestedPackages: [
+        "libasound2-dev"
+      ],
+
+      changes: [
+        {
+          name: "libasound2-dev",
+          action: "install",
+          targetVersion: "1.2.6.1-1ubuntu1.2",
+          architecture: "amd64"
+        }
+      ],
+
+      rawOutput: "",
+      requiresElevation: true,
+      successful: true,
+      warnings: []
+    },
+
+    requiresElevation: true
+  };
+}
+
 function resolution(
   packageName: string
 ): DependencyResolution {
@@ -109,3 +165,48 @@ test("rejects mixed registry versions", async () => {
     /multiple registry versions/
   );
 });
+
+test(
+    "rejects resolution missing from requested transaction",
+    () => {
+      const broken = createPlan();
+
+      broken.requirements.push({
+        resolution: {
+          requirement:
+              "crypto.openssl.development",
+          canonicalId:
+              "crypto.openssl.development",
+          platform: "ubuntu",
+          packageManager: "apt",
+          package:
+              "crypto-open-ssl-dev",
+          source:
+              "ubuntu.official",
+          registryVersion:
+              "0.1.0-dev.0"
+        }
+      });
+
+      assert.throws(
+          () => validatePlan(broken),
+          /missing from transaction requested packages/
+      );
+    }
+);
+
+test(
+    "rejects transaction package with no resolution",
+    () => {
+      const broken = createPlan();
+
+      broken.transaction
+          .requestedPackages
+          .push("mystery-package");
+
+      assert.throws(
+          () => validatePlan(broken),
+          /no dependency resolution/
+      );
+    }
+);

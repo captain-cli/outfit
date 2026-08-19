@@ -13,6 +13,8 @@ export function parseCli() {
       target: { type: "string" },
       path: { type: "string" },
       output: { type: "string" },
+      plan: { type: "string" },
+      approval: { type: "string" },
       registry: { type: "string" },
       reveal: { type: "boolean", default: false },
       length: { type: "string" },
