@@ -9,3 +9,6 @@ coverage/
 # Outfit generated planning artifacts
 outfit.plan*.json
 outfit.approval*.json
+
+# Outfit generated execution receipts
+outfit*.receipt.json
