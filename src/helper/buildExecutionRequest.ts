@@ -9,9 +9,12 @@ import type {
 export function buildExecutionRequest(
     validation: RevalidationResult
 ): ExecutionRequest {
-    if (!validation.matches) {
+    if (
+        validation.state !==
+        "matched"
+    ) {
         throw new Error(
-            "Cannot build execution request from unvalidated plan"
+            "Cannot build execution request for an already satisfied plan"
         );
     }
 

@@ -1,0 +1,20 @@
+{
+  "receiptVersion": "0.1",
+  "receiptId": "9afda361-62ba-4ca6-b011-27195d2bcead",
+  "createdAt": "2026-08-20T13:44:20.924Z",
+  "status": "satisfied",
+  "request": {
+    "protocolVersion": "0.1",
+    "platform": "ubuntu",
+    "packageManager": "apt",
+    "operation": "install",
+    "packages": [],
+    "planFingerprint": {
+      "algorithm": "sha256",
+      "value": "4965bcfd72ab78356fff0b07775891a1bdfc9d78beeca88622decdbfe3dc3445"
+    }
+  },
+  "execution": null,
+  "verification": null,
+  "successful": true
+}

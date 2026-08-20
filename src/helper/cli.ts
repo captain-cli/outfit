@@ -18,6 +18,24 @@ import {
     verifyInstalled
 } from "./verifyInstalled.js";
 
+import {
+    randomUUID
+} from "node:crypto";
+
+import {
+    writeReceipt
+} from "./writeReceipt.js";
+
+import type {
+    OperationReceipt
+} from "./receipt.js";
+
+import {
+    verifyPostExecutionState
+} from "./verifyPostExecutionState.js";
+
+
+
 const { values } = parseArgs({
     options: {
         manifest: {
@@ -39,7 +57,11 @@ const { values } = parseArgs({
         execute: {
             type: "boolean",
             default: false
-        }
+        },
+
+        receipt: {
+            type: "string"
+        },
     }
 });
 
@@ -54,13 +76,93 @@ if (
     );
 }
 
-const request =
+if (
+    values.execute &&
+    !values.receipt
+) {
+    throw new Error(
+        "--receipt is required when --execute is used"
+    );
+}
+
+const reconstruction =
     await reconstructExecution({
         manifest: values.manifest,
         registry: values.registry,
         plan: values.plan,
         approval: values.approval
     });
+
+if (
+    reconstruction.state ===
+    "satisfied"
+) {
+    const operationReceipt:
+        OperationReceipt = {
+        receiptVersion: "0.1",
+
+        receiptId:
+            randomUUID(),
+
+        createdAt:
+            new Date().toISOString(),
+
+        status: "satisfied",
+
+        planFingerprint:
+        reconstruction
+            .planFingerprint,
+
+        platform:
+        reconstruction
+            .currentPlan
+            .platform,
+
+        packageManager:
+            "apt",
+
+        execution: null,
+
+        verification: null,
+
+        successful: true
+    };
+
+    if (values.receipt) {
+        await writeReceipt(
+            values.receipt,
+            operationReceipt
+        );
+    }
+
+    console.log(
+        JSON.stringify(
+            {
+                status: "satisfied",
+                changed: false,
+                executed: false,
+                receipt:
+                operationReceipt
+            },
+            null,
+            2
+        )
+    );
+
+    process.exit(0);
+}
+
+if (
+    reconstruction.state !==
+    "pending"
+) {
+    throw new Error(
+        "Unexpected reconstruction state"
+    );
+}
+
+const request =
+    reconstruction.request;
 
 const native =
     buildAptExecution(
@@ -74,21 +176,42 @@ if (process.getuid?.() !== 0 && values.execute) {
 }
 
 if (values.execute) {
-    const receipt =
+    const execution =
         await executeNative(
             request,
             native
         );
 
-    if (!receipt.successful) {
+    if (!execution.successful) {
+        const operationReceipt:
+            OperationReceipt = {
+            receiptVersion: "0.1",
+
+            receiptId:
+                randomUUID(),
+
+            createdAt:
+                new Date().toISOString(),
+
+            status: "failed",
+
+            request,
+
+            execution,
+
+            verification: null,
+
+            successful: false
+        };
+
+        await writeReceipt(
+            values.receipt!,
+            operationReceipt
+        );
+
         console.log(
             JSON.stringify(
-                {
-                    status: "failed",
-                    request,
-                    receipt,
-                    verification: null
-                },
+                operationReceipt,
                 null,
                 2
             )
@@ -102,22 +225,54 @@ if (values.execute) {
             request
         );
 
+    const postExecutionState =
+        await verifyPostExecutionState({
+            manifest: values.manifest,
+            registry: values.registry,
+            plan: values.plan,
+            approval: values.approval
+        });
+
     const successful =
-        receipt.successful &&
-        verification.successful;
+        execution.successful &&
+        verification.successful &&
+        postExecutionState.state ===
+        "satisfied";
+
+    const operationReceipt:
+        OperationReceipt = {
+        receiptVersion: "0.1",
+
+        receiptId:
+            randomUUID(),
+
+        createdAt:
+            new Date().toISOString(),
+
+        status:
+            successful
+                ? "success"
+                : "failed",
+
+        request,
+
+        execution,
+
+        verification,
+
+        postExecutionState,
+
+        successful
+    };
+
+    await writeReceipt(
+        values.receipt!,
+        operationReceipt
+    );
 
     console.log(
         JSON.stringify(
-            {
-                status:
-                    successful
-                        ? "success"
-                        : "failed",
-
-                request,
-                receipt,
-                verification
-            },
+            operationReceipt,
             null,
             2
         )

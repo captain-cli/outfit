@@ -199,3 +199,77 @@ test(
         );
     }
 );
+
+test(
+    "approved plan becomes satisfied when current transaction has no changes",
+    () => {
+        const approvedPlan =
+            createPlan();
+
+        const approval =
+            createApproval(
+                approvedPlan
+            );
+
+        const currentPlan =
+            createPlan();
+
+        currentPlan.transaction
+            .changes = [];
+
+        const result =
+            revalidatePlan(
+                approvedPlan,
+                currentPlan,
+                approval
+            );
+
+        assert.equal(
+            result.state,
+            "satisfied"
+        );
+
+        assert.equal(
+            result.matches,
+            false
+        );
+    }
+);
+
+test(
+    "empty transaction does not hide changed desired state",
+    () => {
+        const approvedPlan =
+            createPlan();
+
+        const approval =
+            createApproval(
+                approvedPlan
+            );
+
+        const currentPlan =
+            createPlan();
+
+        currentPlan.requirements[0]
+            .resolution.package =
+            "something-else";
+
+        currentPlan.transaction
+            .requestedPackages = [
+            "something-else"
+        ];
+
+        currentPlan.transaction
+            .changes = [];
+
+        assert.throws(
+            () =>
+                revalidatePlan(
+                    approvedPlan,
+                    currentPlan,
+                    approval
+                ),
+            /Current plan does not match approved plan/
+        );
+    }
+);

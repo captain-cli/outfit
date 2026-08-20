@@ -31,6 +31,85 @@ import type {
     InstallationPlan
 } from "../src/planning/types.js";
 
+import type {
+    PackageManagerAdapter
+} from "../src/adapters/packageManager.js";
+
+const fakeAdapter:
+    PackageManagerAdapter = {
+    name: "apt",
+
+    async previewInstall(packages) {
+        return {
+            packageManager: "apt",
+
+            requestedPackages:
+            packages,
+
+            changes: [
+                {
+                    name:
+                        "libasound2-dev",
+
+                    action:
+                        "install",
+
+                    targetVersion:
+                        "1.2.6.1-1ubuntu1.2",
+
+                    architecture:
+                        "amd64",
+
+                    repositoryHints: [
+                        "Ubuntu:22.04/jammy-updates",
+                        "Ubuntu:22.04/jammy-security"
+                    ]
+                }
+            ],
+
+            rawOutput:
+                "fixture apt simulation",
+
+            requiresElevation:
+                true,
+
+            successful:
+                true,
+
+            warnings: []
+        };
+    }
+};
+
+const fakeHost = () => ({
+    os: "linux" as const,
+
+    architecture: "x64",
+
+    distribution: {
+        id: "ubuntu",
+        name: "Ubuntu",
+        version:
+            "22.04.5 LTS",
+        versionId:
+            "22.04",
+        idLike: [
+            "debian"
+        ],
+        family:
+            "debian" as const
+    },
+
+    packageManagers: [],
+
+    selectedPackageManager: "apt" as const
+});
+
+const fakeDependencies = {
+    detectHost: fakeHost,
+    createAdapter: () => fakeAdapter
+};
+
 function sha256(value: string): string {
     return createHash("sha256")
         .update(value)
@@ -249,29 +328,49 @@ test(
 
         try {
             const result =
-                await reconstructExecution({
-                    manifest:
-                    fixture.manifestPath,
-                    registry:
-                    fixture.registryDir,
-                    plan:
-                    fixture.planPath,
-                    approval:
-                    fixture.approvalPath
-                });
+                await reconstructExecution(
+                    {
+                        manifest:
+                        fixture.manifestPath,
+
+                        registry:
+                        fixture.registryDir,
+
+                        plan:
+                        fixture.planPath,
+
+                        approval:
+                        fixture.approvalPath
+                    },
+                    fakeDependencies
+                );
 
             assert.equal(
-                result.packageManager,
+                result.state,
+                "pending"
+            );
+
+            if (
+                result.state !==
+                "pending"
+            ) {
+                assert.fail(
+                    "Expected pending reconstruction result"
+                );
+            }
+
+            assert.equal(
+                result.request.packageManager,
                 "apt"
             );
 
             assert.equal(
-                result.operation,
+                result.request.operation,
                 "install"
             );
 
             assert.equal(
-                result.packages[0].name,
+                result.request.packages[0].name,
                 "libasound2-dev"
             );
         } finally {
@@ -317,7 +416,9 @@ test(
                         fixture.planPath,
                         approval:
                         fixture.approvalPath
-                    }),
+                    },
+                        fakeDependencies
+                    ),
                 /fingerprint does not match/
             );
         } finally {
@@ -362,7 +463,9 @@ test(
                         fixture.planPath,
                         approval:
                         fixture.approvalPath
-                    })
+                    },
+                        fakeDependencies
+                    )
             );
         } finally {
             await rm(
@@ -448,7 +551,92 @@ test(
                         fixture.planPath,
                         approval:
                         fixture.approvalPath
-                    })
+                    },
+                        fakeDependencies
+                    )
+            );
+        } finally {
+            await rm(
+                fixture.dir,
+                {
+                    recursive: true,
+                    force: true
+                }
+            );
+        }
+    }
+);
+
+test(
+    "already satisfied helper inputs return satisfied state",
+    async () => {
+        const fixture =
+            await createFixture();
+
+        const satisfiedAdapter:
+            PackageManagerAdapter = {
+            name: "apt",
+
+            async previewInstall(packages) {
+                return {
+                    packageManager: "apt",
+                    requestedPackages: packages,
+                    changes: [],
+                    rawOutput:
+                        "already satisfied",
+                    requiresElevation: false,
+                    successful: true,
+                    warnings: []
+                };
+            }
+        };
+
+        try {
+            const result =
+                await reconstructExecution(
+                    {
+                        manifest:
+                        fixture.manifestPath,
+                        registry:
+                        fixture.registryDir,
+                        plan:
+                        fixture.planPath,
+                        approval:
+                        fixture.approvalPath
+                    },
+                    {
+                        detectHost:
+                        fakeHost,
+                        createAdapter:
+                            () => satisfiedAdapter
+                    }
+                );
+
+            assert.equal(
+                result.state,
+                "satisfied"
+            );
+
+            if (
+                result.state !==
+                "satisfied"
+            ) {
+                assert.fail(
+                    "Expected satisfied reconstruction result"
+                );
+            }
+
+            assert.equal(
+                result.currentPlan
+                    .transaction
+                    .changes.length,
+                0
+            );
+
+            assert.equal(
+                result.planFingerprint
+                    .algorithm,
+                "sha256"
             );
         } finally {
             await rm(
