@@ -1,0 +1,8 @@
+# Captain Outfit privileged execution policy
+#
+# Only the installed Outfit helper may cross the privilege boundary.
+# Direct package-manager elevation is intentionally not granted here.
+
+Cmnd_Alias CAPTAIN_OUTFIT_HELPER = /usr/lib/captain/outfit/outfit-helper
+
+%sudo ALL=(root) CAPTAIN_OUTFIT_HELPER

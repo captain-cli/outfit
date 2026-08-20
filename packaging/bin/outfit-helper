@@ -1,0 +1,19 @@
+#!/bin/bash
+
+set -euo pipefail
+
+readonly NODE="/usr/bin/node"
+readonly HELPER="/usr/lib/captain/outfit/dist/helper/cli.js"
+
+if [[ ! -x "${NODE}" ]]; then
+    echo "Outfit helper: trusted Node runtime is unavailable" >&2
+    exit 126
+fi
+
+if [[ ! -f "${HELPER}" ]]; then
+    echo "Outfit helper: installed helper runtime is unavailable" >&2
+    exit 126
+fi
+
+exec "${NODE}" "${HELPER}" "$@"
+

@@ -4,7 +4,8 @@
   "description": "OS/environment dependency manager",
   "type": "module",
   "bin": {
-    "outfit": "./dist/cli.js"
+    "outfit": "./dist/cli.js",
+    "outfit-helper": "./dist/helper/cli.js"
   },
   "scripts": {
     "build": "tsc",
