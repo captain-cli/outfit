@@ -34,6 +34,7 @@ import type {
 import type {
     PackageManagerAdapter
 } from "../src/adapters/packageManager.js";
+import {writeSignedRegistryRelease} from "./support/signedRegistry.js";
 
 const fakeAdapter:
     PackageManagerAdapter = {
@@ -247,32 +248,9 @@ async function createFixture() {
         "utf8"
     );
 
-    const release = {
-        version: "0.1.0-dev.0",
-        schemaVersion: "0.1.0",
-        registryFile: "registry.json",
-
-        digest: {
-            algorithm: "sha256",
-            value: sha256(registryJson)
-        },
-
-        signing: {
-            required: false
-        }
-    };
-
-    await writeFile(
-        join(
-            registryDir,
-            "registry.release.json"
-        ),
-        JSON.stringify(
-            release,
-            null,
-            2
-        ),
-        "utf8"
+    await writeSignedRegistryRelease(
+        registryDir,
+        registryJson
     );
 
     const manifestPath =
@@ -510,34 +488,9 @@ test(
                 "utf8"
             );
 
-            const release = {
-                version: "0.1.0-dev.0",
-                schemaVersion: "0.1.0",
-                registryFile:
-                    "registry.json",
-
-                digest: {
-                    algorithm: "sha256",
-                    value:
-                        sha256(registryJson)
-                },
-
-                signing: {
-                    required: false
-                }
-            };
-
-            await writeFile(
-                join(
-                    fixture.registryDir,
-                    "registry.release.json"
-                ),
-                JSON.stringify(
-                    release,
-                    null,
-                    2
-                ),
-                "utf8"
+            await writeSignedRegistryRelease(
+                fixture.registryDir,
+                registryJson
             );
 
             await assert.rejects(

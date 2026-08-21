@@ -8,7 +8,14 @@ import type {
 
 import { validateRegistry } from "./validateRegistry.js";
 import { verifySources } from "./verifySources.js";
-import { verifyRegistryIntegrity } from "./verifyRelease.js";
+import {
+  verifyRegistryIntegrity,
+  verifyRegistrySignature
+} from "./verifyRelease.js";
+
+import {
+  loadTrustedKey
+} from "./loadTrustedKey.js";
 
 export async function loadRegistry(
   path: string
@@ -51,6 +58,17 @@ export async function loadRegistry(
   verifyRegistryIntegrity(
     registryBuffer,
     release
+  );
+
+  const publicKey =
+      await loadTrustedKey(
+          path,
+          release
+      );
+
+  verifyRegistrySignature(
+      release,
+      publicKey
   );
 
   let parsed: unknown;

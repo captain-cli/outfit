@@ -1,5 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import {
+    writeSignedRegistryRelease
+} from "./support/signedRegistry.js";
 
 import {
     mkdtemp,
@@ -15,10 +18,6 @@ import {
 import {
     join
 } from "node:path";
-
-import {
-    createHash
-} from "node:crypto";
 
 import {
     createApproval
@@ -43,14 +42,6 @@ import type {
 import type {
     PackageManagerAdapter
 } from "../src/adapters/packageManager.js";
-
-function sha256(
-    value: string
-): string {
-    return createHash("sha256")
-        .update(value)
-        .digest("hex");
-}
 
 function createPlan():
     InstallationPlan {
@@ -223,41 +214,9 @@ async function createFixture() {
         "utf8"
     );
 
-    await writeFile(
-        join(
-            registryDir,
-            "registry.release.json"
-        ),
-        JSON.stringify(
-            {
-                version:
-                    "0.1.0-dev.0",
-
-                schemaVersion:
-                    "0.1.0",
-
-                registryFile:
-                    "registry.json",
-
-                digest: {
-                    algorithm:
-                        "sha256",
-
-                    value:
-                        sha256(
-                            registryJson
-                        )
-                },
-
-                signing: {
-                    required:
-                        false
-                }
-            },
-            null,
-            2
-        ),
-        "utf8"
+    await writeSignedRegistryRelease(
+        registryDir,
+        registryJson
     );
 
     const manifestPath =

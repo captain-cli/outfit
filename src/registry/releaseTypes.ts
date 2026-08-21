@@ -5,6 +5,12 @@ export interface RegistryDigest {
 
 export interface RegistrySigningMetadata {
   required: boolean;
+
+  algorithm?: "ed25519";
+
+  keyId?: string;
+
+  signature?: string;
 }
 
 export interface RegistryReleaseManifest {

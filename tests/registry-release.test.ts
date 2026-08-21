@@ -3,19 +3,53 @@ import assert from "node:assert/strict";
 
 import {
   mkdtemp,
+  readFile,
   writeFile
 } from "node:fs/promises";
 
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { createHash } from "node:crypto";
 
 import { loadRegistry } from "../src/registry/loadRegistry.js";
+import {writeSignedRegistryRelease} from "./support/signedRegistry.js";
 
-function sha256(value: string): string {
-  return createHash("sha256")
-    .update(value)
-    .digest("hex");
+import {
+    generateKeyPairSync,
+    sign
+} from "node:crypto";
+
+function buildSigningPayload(
+    release: any
+): string {
+    return JSON.stringify({
+        version:
+        release.version,
+
+        schemaVersion:
+        release.schemaVersion,
+
+        registryFile:
+        release.registryFile,
+
+        digest: {
+            algorithm:
+            release.digest.algorithm,
+
+            value:
+            release.digest.value
+        },
+
+        signing: {
+            required:
+            release.signing.required,
+
+            algorithm:
+            release.signing.algorithm,
+
+            keyId:
+            release.signing.keyId
+        }
+    });
 }
 
 function validRegistry() {
@@ -51,7 +85,6 @@ function validRegistry() {
 async function createFixture(
   options: {
     tamper?: boolean;
-    algorithm?: string;
     omitRelease?: boolean;
   } = {}
 ): Promise<string> {
@@ -64,8 +97,6 @@ async function createFixture(
     null,
     2
   );
-
-  const digest = sha256(original);
 
   const registryContents = options.tamper
     ? original.replace(
@@ -81,32 +112,16 @@ async function createFixture(
   );
 
   if (!options.omitRelease) {
-    const release = {
-      version: "0.1.0",
-      schemaVersion: "0.1.0",
-      registryFile: "registry.json",
-
-      digest: {
-        algorithm: options.algorithm ?? "sha256",
-        value: digest
-      },
-
-      signing: {
-        required: false
-      }
-    };
-
-    await writeFile(
-      join(directory, "registry.release.json"),
-      JSON.stringify(release, null, 2),
-      "utf8"
+    await writeSignedRegistryRelease(
+        directory,
+        original
     );
   }
 
   return directory;
 }
 
-test("loads registry when release integrity is valid", async () => {
+test("loads registry when release integrity and signature are valid", async () => {
   const directory = await createFixture();
 
   const registry = await loadRegistry(directory);
@@ -138,13 +153,279 @@ test("rejects missing registry release manifest", async () => {
   );
 });
 
-test("rejects unsupported digest algorithm", async () => {
-  const directory = await createFixture({
-    algorithm: "md5"
-  });
+test(
+    "rejects unsupported digest algorithm",
+    async () => {
+      const directory =
+          await createFixture();
 
-  await assert.rejects(
-    () => loadRegistry(directory),
-    /Unsupported registry digest algorithm/
-  );
-});
+      const releasePath =
+          join(
+              directory,
+              "registry.release.json"
+          );
+
+      const release =
+          JSON.parse(
+              await readFile(
+                  releasePath,
+                  "utf8"
+              )
+          );
+
+      release.digest.algorithm =
+          "md5";
+
+      await writeFile(
+          releasePath,
+          JSON.stringify(
+              release,
+              null,
+              2
+          ),
+          "utf8"
+      );
+
+      await assert.rejects(
+          () =>
+              loadRegistry(
+                  directory
+              ),
+          /Unsupported registry digest algorithm/
+      );
+    }
+);
+
+test(
+    "rejects signed release with missing signature",
+    async () => {
+        const directory =
+            await createFixture();
+
+        const releasePath =
+            join(
+                directory,
+                "registry.release.json"
+            );
+
+        const release =
+            JSON.parse(
+                await readFile(
+                    releasePath,
+                    "utf8"
+                )
+            );
+
+        delete release.signing.signature;
+
+        await writeFile(
+            releasePath,
+            JSON.stringify(
+                release,
+                null,
+                2
+            ),
+            "utf8"
+        );
+
+        await assert.rejects(
+            () =>
+                loadRegistry(
+                    directory
+                ),
+            /signature/i
+        );
+    }
+);
+
+test(
+    "rejects release signed by unknown key id",
+    async () => {
+        const directory =
+            await createFixture();
+
+        const releasePath =
+            join(
+                directory,
+                "registry.release.json"
+            );
+
+        const release =
+            JSON.parse(
+                await readFile(
+                    releasePath,
+                    "utf8"
+                )
+            );
+
+        release.signing.keyId =
+            "captain.registry.unknown.v1";
+
+        await writeFile(
+            releasePath,
+            JSON.stringify(
+                release,
+                null,
+                2
+            ),
+            "utf8"
+        );
+
+        await assert.rejects(
+            () =>
+                loadRegistry(
+                    directory
+                ),
+            /trusted registry signing key/i
+        );
+    }
+);
+
+test(
+    "rejects invalid registry signing key id",
+    async () => {
+        const directory =
+            await createFixture();
+
+        const releasePath =
+            join(
+                directory,
+                "registry.release.json"
+            );
+
+        const release =
+            JSON.parse(
+                await readFile(
+                    releasePath,
+                    "utf8"
+                )
+            );
+
+        release.signing.keyId =
+            "../../etc/passwd";
+
+        await writeFile(
+            releasePath,
+            JSON.stringify(
+                release,
+                null,
+                2
+            ),
+            "utf8"
+        );
+
+        await assert.rejects(
+            () =>
+                loadRegistry(
+                    directory
+                ),
+            /signing key id is invalid/i
+        );
+    }
+);
+
+test(
+    "rejects release signed by untrusted key material",
+    async () => {
+        const directory =
+            await createFixture();
+
+        const releasePath =
+            join(
+                directory,
+                "registry.release.json"
+            );
+
+        const release =
+            JSON.parse(
+                await readFile(
+                    releasePath,
+                    "utf8"
+                )
+            );
+
+        const {
+            privateKey
+        } = generateKeyPairSync(
+            "ed25519"
+        );
+
+        const payload =
+            buildSigningPayload(
+                release
+            );
+
+        release.signing.signature =
+            sign(
+                null,
+                Buffer.from(
+                    payload,
+                    "utf8"
+                ),
+                privateKey
+            ).toString(
+                "base64"
+            );
+
+        await writeFile(
+            releasePath,
+            JSON.stringify(
+                release,
+                null,
+                2
+            ),
+            "utf8"
+        );
+
+        await assert.rejects(
+            () =>
+                loadRegistry(
+                    directory
+                ),
+            /signature verification failed/i
+        );
+    }
+);
+
+test(
+    "rejects modified signed release metadata",
+    async () => {
+        const directory =
+            await createFixture();
+
+        const releasePath =
+            join(
+                directory,
+                "registry.release.json"
+            );
+
+        const release =
+            JSON.parse(
+                await readFile(
+                    releasePath,
+                    "utf8"
+                )
+            );
+
+        release.version =
+            "9.9.9";
+
+        await writeFile(
+            releasePath,
+            JSON.stringify(
+                release,
+                null,
+                2
+            ),
+            "utf8"
+        );
+
+        await assert.rejects(
+            () =>
+                loadRegistry(
+                    directory
+                ),
+            /signature verification failed/i
+        );
+    }
+);
