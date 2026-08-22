@@ -36,6 +36,10 @@ import type {
 } from "../src/adapters/packageManager.js";
 import {writeSignedRegistryRelease} from "./support/signedRegistry.js";
 
+import {
+    loadRegistry
+} from "../src/registry/index.js";
+
 const fakeAdapter:
     PackageManagerAdapter = {
     name: "apt",
@@ -108,7 +112,22 @@ const fakeHost = () => ({
 
 const fakeDependencies = {
     detectHost: fakeHost,
-    createAdapter: () => fakeAdapter
+
+    createAdapter:
+        () => fakeAdapter,
+
+    loadRegistry:
+        (path: string) =>
+            loadRegistry(
+                path,
+                {
+                    trustRoot:
+                        join(
+                            path,
+                            "trust"
+                        )
+                }
+            )
 };
 
 function sha256(value: string): string {
@@ -561,7 +580,10 @@ test(
                         detectHost:
                         fakeHost,
                         createAdapter:
-                            () => satisfiedAdapter
+                            () => satisfiedAdapter,
+
+                        loadRegistry:
+                            fakeDependencies.loadRegistry
                     }
                 );
 

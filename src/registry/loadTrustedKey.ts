@@ -11,8 +11,8 @@ import type {
 } from "./releaseTypes.js";
 
 export async function loadTrustedKey(
-    registryPath: string,
-    release: RegistryReleaseManifest
+    release: RegistryReleaseManifest,
+    trustRoot: string
 ): Promise<string> {
     const keyId =
         release.signing?.keyId;
@@ -38,8 +38,7 @@ export async function loadTrustedKey(
 
     const keyPath =
         join(
-            registryPath,
-            "trust",
+            trustRoot,
             `${keyId}.pem`
         );
 

@@ -34,7 +34,12 @@ import {
     verifyPostExecutionState
 } from "./verifyPostExecutionState.js";
 
+import {
+    join
+} from "node:path";
 
+const RECEIPT_ROOT =
+    "/var/lib/captain/outfit/receipts";
 
 const { values } = parseArgs({
     options: {
@@ -57,11 +62,7 @@ const { values } = parseArgs({
         execute: {
             type: "boolean",
             default: false
-        },
-
-        receipt: {
-            type: "string"
-        },
+        }
     }
 });
 
@@ -76,14 +77,14 @@ if (
     );
 }
 
-if (
-    values.execute &&
-    !values.receipt
-) {
-    throw new Error(
-        "--receipt is required when --execute is used"
+const receiptId =
+    randomUUID();
+
+const receiptPath =
+    join(
+        RECEIPT_ROOT,
+        `${receiptId}.json`
     );
-}
 
 const reconstruction =
     await reconstructExecution({
@@ -102,7 +103,7 @@ if (
         receiptVersion: "0.1",
 
         receiptId:
-            randomUUID(),
+            receiptId,
 
         createdAt:
             new Date().toISOString(),
@@ -128,9 +129,9 @@ if (
         successful: true
     };
 
-    if (values.receipt) {
+    if (values.execute) {
         await writeReceipt(
-            values.receipt,
+            receiptPath,
             operationReceipt
         );
     }
@@ -141,6 +142,7 @@ if (
                 status: "satisfied",
                 changed: false,
                 executed: false,
+                receiptPath,
                 receipt:
                 operationReceipt
             },
@@ -188,7 +190,7 @@ if (values.execute) {
             receiptVersion: "0.1",
 
             receiptId:
-                randomUUID(),
+                receiptId,
 
             createdAt:
                 new Date().toISOString(),
@@ -205,7 +207,7 @@ if (values.execute) {
         };
 
         await writeReceipt(
-            values.receipt!,
+            receiptPath,
             operationReceipt
         );
 
@@ -244,7 +246,7 @@ if (values.execute) {
         receiptVersion: "0.1",
 
         receiptId:
-            randomUUID(),
+            receiptId,
 
         createdAt:
             new Date().toISOString(),
@@ -266,7 +268,7 @@ if (values.execute) {
     };
 
     await writeReceipt(
-        values.receipt!,
+        receiptPath,
         operationReceipt
     );
 

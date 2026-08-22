@@ -121,16 +121,38 @@ async function createFixture(
   return directory;
 }
 
-test("loads registry when release integrity and signature are valid", async () => {
-  const directory = await createFixture();
+async function loadFixtureRegistry(
+    directory: string
+) {
+    return loadRegistry(
+        directory,
+        {
+            trustRoot:
+                join(
+                    directory,
+                    "trust"
+                )
+        }
+    );
+}
 
-  const registry = await loadRegistry(directory);
+test(
+    "loads registry when release integrity and signature are valid",
+    async () => {
+        const directory =
+            await createFixture();
 
-  assert.equal(
-    registry.version,
-    "0.1.0"
-  );
-});
+        const registry =
+            await loadFixtureRegistry(
+                directory
+            );
+
+        assert.equal(
+            registry.version,
+            "0.1.0"
+        );
+    }
+);
 
 test("rejects tampered registry content", async () => {
   const directory = await createFixture({
@@ -138,7 +160,7 @@ test("rejects tampered registry content", async () => {
   });
 
   await assert.rejects(
-    () => loadRegistry(directory),
+    () => loadFixtureRegistry(directory),
     /digest mismatch/
   );
 });
@@ -149,7 +171,7 @@ test("rejects missing registry release manifest", async () => {
   });
 
   await assert.rejects(
-    () => loadRegistry(directory)
+    () => loadFixtureRegistry(directory)
   );
 });
 
@@ -188,7 +210,7 @@ test(
 
       await assert.rejects(
           () =>
-              loadRegistry(
+              loadFixtureRegistry(
                   directory
               ),
           /Unsupported registry digest algorithm/
@@ -230,7 +252,7 @@ test(
 
         await assert.rejects(
             () =>
-                loadRegistry(
+                loadFixtureRegistry(
                     directory
                 ),
             /signature/i
@@ -273,7 +295,7 @@ test(
 
         await assert.rejects(
             () =>
-                loadRegistry(
+                loadFixtureRegistry(
                     directory
                 ),
             /trusted registry signing key/i
@@ -316,7 +338,7 @@ test(
 
         await assert.rejects(
             () =>
-                loadRegistry(
+                loadFixtureRegistry(
                     directory
                 ),
             /signing key id is invalid/i
@@ -379,7 +401,7 @@ test(
 
         await assert.rejects(
             () =>
-                loadRegistry(
+                loadFixtureRegistry(
                     directory
                 ),
             /signature verification failed/i
@@ -422,7 +444,7 @@ test(
 
         await assert.rejects(
             () =>
-                loadRegistry(
+                loadFixtureRegistry(
                     directory
                 ),
             /signature verification failed/i

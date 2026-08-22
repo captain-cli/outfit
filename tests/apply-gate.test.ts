@@ -273,3 +273,44 @@ test(
         );
     }
 );
+
+test(
+    "unchanged empty approved plan is satisfied",
+    () => {
+        const approvedPlan =
+            createPlan();
+
+        approvedPlan.transaction.changes =
+            [];
+
+        const approval =
+            createApproval(
+                approvedPlan
+            );
+
+        const currentPlan =
+            structuredClone(
+                approvedPlan
+            );
+
+        const result =
+            revalidatePlan(
+                approvedPlan,
+                currentPlan,
+                approval
+            );
+
+        assert.equal(
+            result.state,
+            "satisfied"
+        );
+
+        assert.equal(
+            result.currentPlan
+                .transaction
+                .changes
+                .length,
+            0
+        );
+    }
+);

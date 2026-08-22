@@ -47,6 +47,9 @@ export interface ReconstructionDependencies {
     createAdapter: (
         packageManager: string
     ) => PackageManagerAdapter;
+
+    loadRegistry:
+        typeof loadRegistry;
 }
 
 export interface HelperInputs {
@@ -59,6 +62,7 @@ export interface HelperInputs {
 const DEFAULT_DEPENDENCIES:
     ReconstructionDependencies = {
     detectHost,
+    loadRegistry,
 
     createAdapter(
         packageManager: string
@@ -98,7 +102,7 @@ export async function reconstructExecution(
         host.selectedPackageManager ?? "unknown";
 
     const registry =
-        await loadRegistry(
+        await dependencies.loadRegistry(
             inputs.registry
         );
 

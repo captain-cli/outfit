@@ -35,6 +35,10 @@ import {
     verifyPostExecutionState
 } from "../src/helper/verifyPostExecutionState.js";
 
+import {
+    loadRegistry
+} from "../src/registry/index.js";
+
 import type {
     InstallationPlan
 } from "../src/planning/types.js";
@@ -365,7 +369,20 @@ test(
 
                         createAdapter:
                             () =>
-                                satisfiedAdapter
+                                satisfiedAdapter,
+
+                        loadRegistry:
+                            (path: string) =>
+                                loadRegistry(
+                                    path,
+                                    {
+                                        trustRoot:
+                                            join(
+                                                path,
+                                                "trust"
+                                            )
+                                    }
+                                )
                     }
                 );
 

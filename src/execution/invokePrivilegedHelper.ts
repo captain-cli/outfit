@@ -1,0 +1,85 @@
+import {
+    spawn
+} from "node:child_process";
+
+export interface PrivilegedHelperInputs {
+    manifest: string;
+    registry: string;
+    plan: string;
+    approval: string;
+}
+
+const SUDO =
+    "/usr/bin/sudo";
+
+const HELPER =
+    "/usr/lib/captain/outfit/outfit-helper";
+
+export async function invokePrivilegedHelper(
+    inputs: PrivilegedHelperInputs
+): Promise<number> {
+    const args = [
+        HELPER,
+
+        "--manifest",
+        inputs.manifest,
+
+        "--registry",
+        inputs.registry,
+
+        "--plan",
+        inputs.plan,
+
+        "--approval",
+        inputs.approval,
+
+        "--execute"
+    ];
+
+    return new Promise(
+        (
+            resolve,
+            reject
+        ) => {
+            const child =
+                spawn(
+                    SUDO,
+                    args,
+                    {
+                        stdio:
+                            "inherit",
+
+                        shell:
+                            false
+                    }
+                );
+
+            child.once(
+                "error",
+                reject
+            );
+
+            child.once(
+                "exit",
+                (
+                    code,
+                    signal
+                ) => {
+                    if (signal) {
+                        reject(
+                            new Error(
+                                `Privileged helper terminated by signal ${signal}`
+                            )
+                        );
+
+                        return;
+                    }
+
+                    resolve(
+                        code ?? 1
+                    );
+                }
+            );
+        }
+    );
+}

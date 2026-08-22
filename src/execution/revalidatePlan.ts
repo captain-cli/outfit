@@ -64,15 +64,25 @@ export function revalidatePlan(
     }
 
     /*
-     * Exact same effective transaction.
-     */
+ * If there is nothing left for the package manager
+ * to change and the desired state is still the same,
+ * the approved operation is already satisfied.
+ *
+ * This must be checked before exact fingerprint
+ * equality because an originally empty approved
+ * transaction is also a satisfied state.
+ */
     if (
-        approvedFingerprint.value ===
-        currentFingerprint.value
+        currentPlan.transaction
+            .changes.length === 0 &&
+        sameDesiredState(
+            approvedPlan,
+            currentPlan
+        )
     ) {
         return {
-            state: "matched",
-            matches: true,
+            state: "satisfied",
+            matches: false,
 
             approvedPlan,
             currentPlan,
@@ -86,21 +96,16 @@ export function revalidatePlan(
     }
 
     /*
-     * The transaction may legitimately disappear
-     * after the approved operation has already
-     * brought the host into the desired state.
+     * Exact same effective transaction with work
+     * still pending.
      */
     if (
-        currentPlan.transaction
-            .changes.length === 0 &&
-        sameDesiredState(
-            approvedPlan,
-            currentPlan
-        )
+        approvedFingerprint.value ===
+        currentFingerprint.value
     ) {
         return {
-            state: "satisfied",
-            matches: false,
+            state: "matched",
+            matches: true,
 
             approvedPlan,
             currentPlan,

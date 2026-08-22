@@ -17,8 +17,13 @@ import {
   loadTrustedKey
 } from "./loadTrustedKey.js";
 
+export interface RegistryLoadOptions {
+  trustRoot?: string;
+}
+
 export async function loadRegistry(
-  path: string
+  path: string,
+  options: RegistryLoadOptions = {}
 ): Promise<OutfitRegistry> {
   const releasePath = join(
     path,
@@ -60,10 +65,14 @@ export async function loadRegistry(
     release
   );
 
+  const trustRoot =
+      options.trustRoot ??
+      "/etc/captain/outfit/trust";
+
   const publicKey =
       await loadTrustedKey(
-          path,
-          release
+          release,
+          trustRoot
       );
 
   verifyRegistrySignature(
