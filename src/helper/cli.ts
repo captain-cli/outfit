@@ -38,6 +38,10 @@ import {
     join
 } from "node:path";
 
+import type {
+    HelperResponse
+} from "./response.js";
+
 const RECEIPT_ROOT =
     "/var/lib/captain/outfit/receipts";
 
@@ -86,13 +90,60 @@ const receiptPath =
         `${receiptId}.json`
     );
 
-const reconstruction =
-    await reconstructExecution({
-        manifest: values.manifest,
-        registry: values.registry,
-        plan: values.plan,
-        approval: values.approval
-    });
+let reconstruction;
+
+try {
+    reconstruction =
+        await reconstructExecution({
+            manifest:
+            values.manifest,
+
+            registry:
+            values.registry,
+
+            plan:
+            values.plan,
+
+            approval:
+            values.approval
+        });
+}
+catch (error) {
+    const response:
+        HelperResponse = {
+        status:
+            "failed",
+
+        changed:
+            false,
+
+        executed:
+            false,
+
+        receiptPath:
+            null,
+
+        receipt:
+            null,
+
+        error: {
+            message:
+                error instanceof Error
+                    ? error.message
+                    : String(error)
+        }
+    };
+
+    console.log(
+        JSON.stringify(
+            response,
+            null,
+            2
+        )
+    );
+
+    process.exit(1);
+}
 
 if (
     reconstruction.state ===
@@ -136,16 +187,26 @@ if (
         );
     }
 
+    const response:
+        HelperResponse = {
+        status:
+            "satisfied",
+
+        changed:
+            false,
+
+        executed:
+            false,
+
+        receiptPath,
+
+        receipt:
+        operationReceipt
+    };
+
     console.log(
         JSON.stringify(
-            {
-                status: "satisfied",
-                changed: false,
-                executed: false,
-                receiptPath,
-                receipt:
-                operationReceipt
-            },
+            response,
             null,
             2
         )
@@ -211,9 +272,26 @@ if (values.execute) {
             operationReceipt
         );
 
+        const response:
+            HelperResponse = {
+            status:
+                "failed",
+
+            changed:
+                true,
+
+            executed:
+                true,
+
+            receiptPath,
+
+            receipt:
+            operationReceipt
+        };
+
         console.log(
             JSON.stringify(
-                operationReceipt,
+                response,
                 null,
                 2
             )
@@ -272,9 +350,28 @@ if (values.execute) {
         operationReceipt
     );
 
+    const response:
+        HelperResponse = {
+        status:
+            successful
+                ? "success"
+                : "failed",
+
+        changed:
+            true,
+
+        executed:
+            true,
+
+        receiptPath,
+
+        receipt:
+        operationReceipt
+    };
+
     console.log(
         JSON.stringify(
-            operationReceipt,
+            response,
             null,
             2
         )

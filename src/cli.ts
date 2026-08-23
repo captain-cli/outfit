@@ -24,7 +24,28 @@ if (values.version) {
 }
 if (values.help || op === "help") {
     console.log(
-        `outfit detect|host|plan|approve|apply
+        `Outfit manages trusted operating-system dependencies
+through explicit planning, approval, and verified execution.
+
+Usage:
+  outfit <command> [options]
+
+Commands:
+  detect
+      Detect the current host environment.
+
+  host
+      Show host and package-manager information.
+
+  plan
+      Resolve dependencies and create an installation plan.
+
+  approve
+      Approve a previously generated installation plan.
+
+  apply
+      Revalidate and apply an approved plan through the
+      privileged Outfit helper.
 
 plan:
   --manifest <file>
@@ -43,8 +64,15 @@ apply:
 
 common:
   --json
+  --verbose, -v
+  --quiet, -q
+  --help, -h
+  --version
 
-Privileged package installation is currently disabled.`
+Security:
+  Outfit revalidates the approved plan against the current
+  host, signed registry, and package-manager state before
+  privileged execution.`
     );
 
     process.exit(0);
@@ -126,6 +154,20 @@ if (op === "plan") {
         adapter
     );
 
+    const displayPlan =
+        values.verbose
+            ? plan
+            : {
+                ...plan,
+
+                transaction: {
+                    ...plan.transaction,
+
+                    rawOutput:
+                    undefined
+                }
+            };
+
     if (values.output) {
         await writePlan(
             values.output,
@@ -140,7 +182,8 @@ if (op === "plan") {
             "success",
             {
                 host,
-                plan,
+                plan:
+                    displayPlan,
                 artifact: values.output
                     ? {
                         type: "installation-plan",
@@ -211,7 +254,7 @@ if (op === "apply") {
         );
     }
 
-    const exitCode =
+    const result =
         await invokePrivilegedHelper({
             manifest:
             values.manifest,
@@ -226,8 +269,113 @@ if (op === "apply") {
             values.approval
         });
 
+    if (result.stderr.trim()) {
+        console.error(
+            result.stderr.trim()
+        );
+    }
+
+    if (!result.response) {
+        throw new Error(
+            "Privileged helper returned an invalid response"
+        );
+    }
+
+    const response =
+        result.response;
+
+    if (values.json) {
+        console.log(
+            JSON.stringify(
+                response,
+                null,
+                2
+            )
+        );
+
+        process.exit(
+            result.exitCode
+        );
+    }
+
+    if (
+        response.status ===
+        "satisfied"
+    ) {
+        console.log(
+            "Outfit is already satisfied."
+        );
+
+        console.log(
+            "\nNo changes were required."
+        );
+
+        console.log(
+            `\nReceipt:\n  ${response.receiptPath}`
+        );
+
+        process.exit(
+            result.exitCode
+        );
+    }
+
+    if (
+        response.status ===
+        "success"
+    ) {
+        console.log(
+            "Outfit applied successfully."
+        );
+
+        const packages =
+            response.receipt &&
+            "request" in response.receipt
+                ? response.receipt.request.packages
+                : [];
+
+        if (packages.length > 0) {
+            console.log(
+                "\nInstalled:"
+            );
+
+            for (const pkg of packages) {
+                console.log(
+                    `  ${pkg.name}${
+                        pkg.version
+                            ? ` ${pkg.version}`
+                            : ""
+                    }`
+                );
+            }
+        }
+
+        console.log(
+            `\nReceipt:\n  ${response.receiptPath}`
+        );
+
+        process.exit(
+            result.exitCode
+        );
+    }
+
+    console.error(
+        "Outfit apply failed."
+    );
+
+    if (response.error?.message) {
+        console.error(
+            `\nReason:\n  ${response.error.message}`
+        );
+    }
+
+    if (response.receiptPath) {
+        console.error(
+            `\nReceipt:\n  ${response.receiptPath}`
+        );
+    }
+
     process.exit(
-        exitCode
+        result.exitCode
     );
 }
 
