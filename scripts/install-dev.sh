@@ -40,6 +40,18 @@ sudo install \
     -m 0750 \
     "${RECEIPT_ROOT}"
 
+echo "Installing trusted registry keys..."
+
+sudo install -d -m 0755 "${CONFIG_ROOT}/trust"
+
+for public_key in "${ROOT_DIR}"/packaging/trust/*.pem; do
+    [ -f "${public_key}" ] || continue
+
+    sudo install -o root -g root -m 0644 \
+        "${public_key}" \
+        "${CONFIG_ROOT}/trust/$(basename "${public_key}")"
+done
+
 echo "Installing compiled Outfit runtime..."
 
 sudo rm -rf \
