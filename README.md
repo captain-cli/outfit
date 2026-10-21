@@ -1,94 +1,72 @@
-# Captain Outfit
+# Outfit
+
 <p align="center">
-    <img src="./assets/captain-outfit.png" alt="Captain - Captain's Outfit" width="100%" />
+  <img src="./assets/outfit-banner.png" alt="Outfit — Every voyage needs the right cargo" width="100%" />
 </p>
-> Trusted operating-system dependency provisioning with explicit planning, approval, verification, and privileged execution.
 
-Captain Outfit is a dependency provisioning tool designed around a simple principle:
+**Every voyage needs the right cargo.**
 
-**Applications should be able to declare what they need without being trusted to decide how privileged software is installed.**
+Outfit helps an application declare the operating-system capabilities it needs, then safely determines how those requirements can be satisfied on a host. Instead of letting an application run arbitrary privileged installation commands, Outfit uses a **trusted dependency registry**, a **reviewable installation plan**, **explicit approval**, and **verification after execution**.
 
-Instead of allowing application manifests, build scripts, or arbitrary package names to cross the privilege boundary directly, Outfit resolves logical dependency requirements through a trusted registry, constructs an installation plan, requires explicit approval, revalidates that plan immediately before execution, and verifies the resulting system state.
+> **In one sentence:** Your application says *what it needs*; Outfit decides *what may be installed*, asks for approval, and checks the result.
+
+**Current status:** Active development (`0.1.0-dev.0`). The documented trusted execution path targets **Ubuntu/Debian-family systems using APT**. Additional platforms and package managers are future work. Interfaces may change.
+
+## How it works
 
 ```text
-Application Manifest
-        │
-        │ logical requirements
-        ▼
-┌──────────────────────┐
-│        Outfit        │
-│                      │
-│  Resolve             │
-│  Plan                │
-│  Approve             │
-│  Revalidate          │
-└──────────┬───────────┘
-           │
-           │ approved execution request
-           ▼
-┌──────────────────────┐
-│ Privileged Helper    │
-│                      │
-│ Reconstruct          │
-│ Verify               │
-│ Execute              │
-│ Verify Again         │
-└──────────┬───────────┘
-           │
-           ▼
-      Host Package
-        Manager
-           │
-           ▼
-        Receipt
+Application requirements
+        ↓
+Trusted registry mapping
+        ↓
+PLAN → review → APPROVE
+        ↓
+Revalidate approved request
+        ↓
+Privileged helper → native package manager
+        ↓
+Verify installed state → receipt
 ```
 
-## Why Outfit Exists
+Think of a ship being loaded: applications list the cargo they need, Outfit checks the approved manifest against trusted cargo records, and only then allows the host to receive it.
 
-Installing a system dependency looks simple:
+## Quick start: explore safely
+
+**Prerequisites:** Linux, Node.js 20 or later, npm. These introductory commands inspect the host and do not install OS packages.
 
 ```bash
-sudo apt install some-package
+# Clone the project and build the CLI
+git clone https://github.com/captain-cli/outfit.git
+cd outfit
+npm install
+npm run build
+
+# See available commands
+node dist/cli.js --help
+
+# Inspect the host
+node dist/cli.js detect
 ```
 
-But once dependency installation becomes automated, several questions appear:
+For machine-readable output:
 
-- Who decided that `some-package` is the correct package?
-- Which repository is authorized to provide it?
-- Is that mapping valid for this operating system?
-- Is the package manager trusted on this host?
-- Did the dependency mapping change after the user reviewed it?
-- Did the installation plan change after approval?
-- What exactly crossed the privilege boundary?
-- Can the resulting operation be verified afterward?
+```bash
+node dist/cli.js detect --json
+```
 
-Outfit treats those questions as part of dependency management rather than as somebody else's security problem.
+> **Safe starting point:** `detect` only reports host information. The later `plan` step previews a native package-manager transaction but does not install packages. `apply` is the privileged operation; review the generated plan and understand the registry trust setup before using it.
 
-## The Outfit Model
+## Your first dependency declaration
 
-An application declares a **logical dependency**:
+Outfit works with **logical dependency identifiers**, not arbitrary package-install commands. The repository includes [`examples/outfit-demo.json`](./examples/outfit-demo.json):
 
 ```json
 {
-  "requires": [
-    "utility.sl"
-  ]
+  "requires": ["utility.sl"]
 }
 ```
 
-It does **not** declare:
-
-```text
-apt install sl
-```
-
-It does not select a repository.
-
-It does not construct a privileged shell command.
-
-Instead, Outfit resolves `utility.sl` through the trusted Captain Outfit Registry.
-
-A registry mapping can describe:
+A trusted registry can map `utility.sl` to a package for an authorized platform and source, for example:
 
 ```json
 {
@@ -104,97 +82,38 @@ A registry mapping can describe:
 }
 ```
 
-The application describes **what it requires**.
+**The application does not choose the repository or construct a `sudo apt install` command.** Outfit resolves the identifier through verified registry data and the current host environment.
 
-The registry determines **how that requirement may be satisfied**.
+## Plan, approve, apply
 
-Outfit determines **whether the resulting operation is valid for the current host**.
+The following workflow requires a **separately available, trusted Captain Outfit Registry** at `../captain-outfit-registry`. That directory is not created by cloning Outfit; it must contain an appropriately signed registry and the host must have its trusted signing keys configured. See [Registry trust](#registry-trust) before attempting this workflow.
 
----
-
-# Trusted Apply Lifecycle
-
-Outfit deliberately separates dependency installation into distinct stages.
-
-```text
-        PLAN
-          │
-          ▼
-       APPROVE
-          │
-          ▼
-      REVALIDATE
-          │
-          ▼
-        APPLY
-          │
-          ▼
-        VERIFY
-          │
-          ▼
-       RECEIPT
-```
-
-The approval is not permission to execute arbitrary future state.
-
-It is approval of a **specific effective plan**.
-
-If the plan, manifest, registry mapping, or resulting transaction changes, Outfit rejects the operation.
-
-## 1. Plan
-
-Create an installation plan:
+### 1. Plan — no installation
 
 ```bash
-outfit plan \
+node dist/cli.js plan \
   --manifest examples/outfit-demo.json \
   --registry ../captain-outfit-registry \
   --output outfit.plan.json
 ```
 
-Outfit:
+Outfit detects the host, checks the registry, resolves the logical requirements, and previews the native transaction. **Review `outfit.plan.json` before approving it.** A plan may fail when required sources, signatures, keys, or compatible package-manager support are unavailable; it does not bypass those checks.
 
-1. detects the host,
-2. identifies a verified package manager,
-3. loads and verifies the registry,
-4. resolves logical dependencies,
-5. previews the native package transaction,
-6. normalizes the resulting installation plan, and
-7. writes the plan artifact.
-
-Nothing is installed.
-
-## 2. Approve
-
-Approve the generated plan:
+### 2. Approve — bind approval to that plan
 
 ```bash
-outfit approve \
+node dist/cli.js approve \
   --plan outfit.plan.json \
   --output outfit.approval.json
 ```
 
-The approval binds to the plan fingerprint.
+Approval records a cryptographic fingerprint of the effective plan. It is not blanket authorization for later changes.
 
-It records the approved:
+### 3. Apply — privileged operation
 
-- plan,
-- registry version,
-- platform,
-- package manager, and
-- cryptographic fingerprint.
+**Do not run this until the trusted registry, host trust anchors, and Outfit's privileged helper/sudo policy have been installed and reviewed.** The project provides a development installer, discussed below.
 
-Approval therefore represents:
-
-> **I approve this plan.**
-
-Not:
-
-> **I approve whatever this tool decides to do later.**
-
-## 3. Apply
-
-Apply the approved plan:
+With the installed `outfit` command and helper:
 
 ```bash
 outfit apply \
@@ -204,401 +123,82 @@ outfit apply \
   --approval outfit.approval.json
 ```
 
-Before privileged execution, Outfit reconstructs the operation from current trusted inputs and compares it against the approved state.
+Before making changes, Outfit reconstructs and revalidates the requested operation against the approved plan. If anything material changed, it rejects the request instead of executing it.
 
-If anything material changed, execution stops.
+### 4. Verify and receipt
 
-For example:
-
-```text
-Outfit apply failed.
-
-Reason:
-  Approved plan fingerprint does not match current plan
-```
-
-No package-manager operation occurs.
-
-## 4. Verify
-
-Successful native execution is not considered sufficient by itself.
-
-Outfit verifies the resulting installation state and reconstructs the desired state again.
-
-Only when the expected state is satisfied is the operation considered successful.
-
-## 5. Receipt
-
-Executed operations produce a root-owned receipt under:
+After a successful apply, Outfit checks the installed state and produces an auditable, root-owned receipt under:
 
 ```text
 /var/lib/captain/outfit/receipts/
 ```
 
-Receipts are written with private permissions and provide an audit artifact describing the operation and verification result.
+When a dependency is already satisfied, Outfit can report that no change was needed; this is distinct from a new installation.
 
-Example:
+## What the commands do
 
-```text
--rw------- 1 root root ... <receipt-id>.json
-```
+| Command | Purpose | Changes OS packages? |
+| --- | --- | --- |
+| `outfit --help` | Print CLI commands and options | No |
+| `outfit detect` | Detect host distribution and package manager | No |
+| `outfit host` | Show host/package-manager information | No |
+| `outfit plan` | Resolve requirements and preview a transaction | No |
+| `outfit approve` | Approve one effective plan | No |
+| `outfit apply` | Revalidate and run an approved operation using the privileged helper | **Potentially yes** |
 
----
+Use `--json` where supported for machine-readable output and `--verbose` for more detailed diagnostics.
 
-# Idempotent Apply
+## Security and trust
 
-If the requested dependencies are already present, Outfit recognizes that the desired state has already been reached.
+Outfit's central design rule is that **application intent must not become unchecked root access**.
 
-Running `apply` again produces:
+- **Trusted registry:** Logical requirements resolve through authorized platform/source mappings, not arbitrary package names provided by an application.
+- **Signed releases:** Registry integrity uses SHA-256 and Ed25519 signatures verified using installed trust anchors.
+- **Reviewable plans:** Approvals are bound to a specific effective plan fingerprint.
+- **Revalidation:** Before executing, the helper reconstructs the operation from trusted inputs and rejects material changes.
+- **Narrow privilege boundary:** The installed helper, rather than the public CLI or arbitrary shell commands, handles privileged native package operations.
+- **Post-execution checks:** Success requires verification of the resulting system state, not just a zero package-manager exit code.
+- **Auditable receipts:** Executed operations produce restricted receipts documenting what happened.
 
-```text
-Outfit is already satisfied.
+Trust anchors are installed at `/etc/captain/outfit/trust/`. For a deeper discussion, see [`docs/SECURITY.md`](./docs/SECURITY.md).
 
-No changes were required.
+## Supported platforms
 
-Receipt:
-  /var/lib/captain/outfit/receipts/<receipt-id>.json
-```
+| Platform / manager | Status |
+| --- | --- |
+| Ubuntu / Debian-family systems with APT | Current documented trusted execution path |
+| Other distributions and package managers | Under development / not yet claimed as fully supported |
 
-Outfit distinguishes between:
+Outfit contains separate host detection, planning, and adapter layers. Detecting another environment does **not** by itself mean that privileged installation on that environment is production-ready.
 
-```text
-successful execution
-```
+## Development
 
-and:
-
-```text
-desired state already satisfied
-```
-
-That distinction is intentional.
-
----
-
-# The Privilege Boundary
-
-The public `outfit` CLI does not receive unrestricted root privileges.
-
-Privileged execution crosses a narrow helper boundary:
-
-```text
-/usr/bin/outfit
-       │
-       │ sudo
-       ▼
-/usr/lib/captain/outfit/outfit-helper
-       │
-       ▼
- verified native execution
-```
-
-The sudo policy grants elevation only to the installed Outfit helper.
-
-It does **not** grant Outfit users unrestricted elevated access to the native package manager through the Outfit policy.
-
-The helper:
-
-- reconstructs the execution request,
-- validates the approved plan,
-- validates package input,
-- builds the native operation internally,
-- executes without a shell,
-- verifies the resulting state, and
-- writes the execution receipt.
-
-The privileged boundary therefore receives a constrained, validated operation rather than arbitrary shell instructions.
-
----
-
-# Registry Trust
-
-Outfit does not blindly trust a registry file simply because a path was supplied.
-
-Registry releases are protected by:
-
-- SHA-256 content integrity,
-- signed release metadata,
-- Ed25519 signatures,
-- trusted signing-key identifiers, and
-- locally installed trust anchors.
-
-The host trust store lives at:
-
-```text
-/etc/captain/outfit/trust/
-```
-
-A registry whose contents have been modified without a corresponding valid trusted release signature is rejected.
-
-Trust originates from the host — not from the application requesting installation.
-
----
-
-# Security Properties
-
-The current Outfit architecture is designed to enforce several boundaries.
-
-### Applications cannot choose arbitrary package sources
-
-Logical dependencies must resolve through registered mappings.
-
-### Sources are constrained by platform and package manager
-
-A registered source cannot automatically be used everywhere.
-
-### Package managers must be detected and verified
-
-Finding an executable with a familiar name is not sufficient.
-
-### Approval is cryptographically bound to the effective plan
-
-Changing the approved transaction changes its fingerprint.
-
-### Current state is reconstructed before execution
-
-The privileged helper does not simply trust artifacts handed to it.
-
-### Package names are validated before native execution
-
-Shell syntax and malformed package requests are rejected.
-
-### Native execution does not use a shell
-
-The helper invokes the expected executable directly with validated arguments.
-
-### Registry integrity is verified
-
-Modified registry content, invalid signatures, unknown signing keys, and untrusted key material are rejected.
-
-### Execution is verified afterward
-
-A successful package-manager exit code alone does not prove the desired state was reached.
-
----
-
-# Host Detection
-
-Outfit currently detects Linux distribution and package-manager information including:
-
-```text
-OS
-Architecture
-Distribution
-Distribution family
-Available package managers
-Verified package managers
-Selected package manager
-Package-manager version
-```
-
-Example Ubuntu host:
-
-```text
-linux
-x64
-Ubuntu 22.04
-Debian family
-apt
-```
-
----
-
-# Current Platform Support
-
-The first execution backend targets:
-
-**Ubuntu / Debian-family systems using APT.**
-
-The architecture intentionally separates:
-
-- host detection,
-- registry resolution,
-- planning,
-- package-manager adapters,
-- approval,
-- privileged execution, and
-- post-execution verification.
-
-Additional package managers and platforms can therefore be added without changing the core trust model.
-
----
-
-# CLI
-
-```text
-outfit detect
-outfit host
-outfit plan
-outfit approve
-outfit apply
-```
-
-Common options:
-
-```text
---json
---verbose, -v
---quiet, -q
---help, -h
---version
-```
-
-Get help:
-
-```bash
-outfit --help
-```
-
-Machine-readable output is available with:
-
-```bash
-outfit <command> --json
-```
-
----
-
-# Development
-
-Requires Node.js and npm.
-
-Clone the repository and install dependencies:
+From the repository root:
 
 ```bash
 npm install
-```
-
-Build:
-
-```bash
 npm run build
-```
-
-Run the test suite:
-
-```bash
 npm test
 ```
 
-The current test suite covers the trust and execution lifecycle, including:
-
-- host detection,
-- package-manager selection,
-- dependency resolution,
-- source authorization,
-- APT transaction parsing,
-- plan normalization,
-- plan fingerprinting,
-- approval validation,
-- manifest-change detection,
-- registry-change detection,
-- helper reconstruction,
-- execution-request validation,
-- registry integrity,
-- Ed25519 release signatures,
-- trusted signing keys,
-- native executable validation,
-- execution receipts, and
-- post-execution verification.
-
----
-
-# Development Installation
-
-The repository includes a development installer:
+The repository's development installer sets up installed runtime files, host trust anchors, the privileged helper, and sudo policy:
 
 ```bash
 ./scripts/install-dev.sh
 ```
 
-It installs the development runtime into the system locations used by Outfit, including:
+**Review this script and its sudoers configuration before running it.** It uses `sudo` and modifies system locations including `/usr/bin/outfit`, `/usr/lib/captain/outfit/`, `/etc/captain/outfit/trust/`, and `/etc/sudoers.d/captain-outfit`. It is a **development installer**, not a one-click installer for general end users.
 
-```text
-/usr/bin/outfit
-/usr/lib/captain/outfit/
-/etc/captain/outfit/trust/
-/etc/sudoers.d/captain-outfit
-```
+The test suite covers host detection, mapping and authorization, plans and fingerprints, approval checks, signed registry trust, helper validation, receipts, and post-execution verification.
 
-The installer validates the sudoers policy before and after installation.
+## Where Outfit fits in Captain
 
----
+**Stager** prepares the application filesystem. **Embark** produces native application packages. **Outfit** describes and controls the host capabilities those applications require. **Dockhand** prepares the host for its role in the broader Captain workflow.
 
-# Design Philosophy
+Outfit deliberately separates **what an application needs** from **who is authorized to install it**.
 
-Outfit is not intended to become another syntax for:
-
-```text
-sudo apt install ...
-```
-
-Its purpose is to create a controlled relationship between:
-
-```text
-application intent
-        │
-        ▼
-trusted dependency identity
-        │
-        ▼
-authorized platform mapping
-        │
-        ▼
-reviewable installation plan
-        │
-        ▼
-explicit approval
-        │
-        ▼
-privileged reconstruction
-        │
-        ▼
-verified execution
-        │
-        ▼
-auditable result
-```
-
-The application gets to say:
-
-> **I need this capability.**
-
-It does not automatically get to say:
-
-> **Run this command as root.**
-
-That distinction is the foundation of Captain Outfit.
+For implementation details, see [`docs/CAPTAIN_TOOL_CONTRACT.md`](./docs/CAPTAIN_TOOL_CONTRACT.md) and [`docs/SECURITY.md`](./docs/SECURITY.md).
 
 ---
 
-# Project Status
-
-Captain Outfit is currently under active development.
-
-The Ubuntu/APT path implements the core trusted lifecycle:
-
-```text
-detect
-  ↓
-resolve
-  ↓
-plan
-  ↓
-approve
-  ↓
-revalidate
-  ↓
-privileged execution
-  ↓
-verify
-  ↓
-receipt
-```
-
-The project is still pre-release and its interfaces may change as additional platforms, package managers, registry capabilities, and Captain ecosystem integrations are introduced.
-
----
-
-## Captain
-
-**Outfit** is part of the Captain toolchain: infrastructure tooling built around explicit contracts, controlled trust boundaries, reproducible operations, and inspectable system state.
+Outfit is part of the [Captain ecosystem](https://github.com/captain-cli). **Every voyage needs the right cargo.**
