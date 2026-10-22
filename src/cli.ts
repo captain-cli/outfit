@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import {readFile} from "node:fs/promises";
+import {loadOutfitRequirements} from "./manifestRequirements.js";
 import {parseCli, print} from "./cliSupport.js";
 import {envelope} from "./protocol.js";
 import {detectHost} from "./host/index.js";
@@ -108,9 +108,7 @@ if (op === "plan") {
         );
     }
 
-    const manifest = JSON.parse(
-        await readFile(values.manifest, "utf8")
-    );
+    const requires = await loadOutfitRequirements(values.manifest);
 
     const reg = await loadRegistry(values.registry);
 
@@ -121,7 +119,7 @@ if (op === "plan") {
         host.selectedPackageManager ?? "unknown";
 
     const resolutions = (
-        manifest.requires ?? []
+        requires
     ).map((requirement: string) =>
         resolve(
             reg,

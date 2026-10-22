@@ -1,4 +1,4 @@
-import { readFile } from "node:fs/promises";
+import {loadOutfitRequirements} from "../manifestRequirements.js";
 
 import { detectHost } from "../host/index.js";
 import { loadRegistry, resolve } from "../registry/index.js";
@@ -106,16 +106,10 @@ export async function reconstructExecution(
             inputs.registry
         );
 
-    const manifest =
-        JSON.parse(
-            await readFile(
-                inputs.manifest,
-                "utf8"
-            )
-        );
+    const requires = await loadOutfitRequirements(inputs.manifest);
 
     const resolutions = (
-        manifest.requires ?? []
+        requires
     ).map((requirement: string) =>
         resolve(
             registry,

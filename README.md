@@ -202,3 +202,13 @@ For implementation details, see [`docs/CAPTAIN_TOOL_CONTRACT.md`](./docs/CAPTAIN
 ---
 
 Outfit is part of the [Captain ecosystem](https://github.com/captain-cli). **Every voyage needs the right cargo.**
+
+### Captain canonical manifest support
+
+`outfit plan --manifest ./manifest.json --registry ...` also accepts a
+`captain/manifest/v1` project manifest. Requirements are read from
+`outfit.requires`, a split `manifests.outfit` tool envelope, or (when no
+Outfit section is present) `system.requires`. `outfit apply` re-reads the
+**same source** inside the privileged helper, retaining signed-registry,
+plan and approval revalidation. Legacy `{ "requires": [...] }` manifests
+continue to work.
